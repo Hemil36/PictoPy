@@ -3,12 +3,14 @@ import sqlite3
 import json
 from typing import Optional, Dict, Any
 from app.config.settings import DATABASE_PATH
+from app.database.db_utils import get_db_connection
 
 
 def db_create_metadata_table() -> None:
     """Create the metadata table if it doesn't exist."""
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+
+        cursor = conn.cursor()
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS metadata (
@@ -22,9 +24,6 @@ def db_create_metadata_table() -> None:
     if cursor.fetchone()[0] == 0:
         cursor.execute("INSERT INTO metadata (metadata) VALUES (?)", ("{}",))
 
-    conn.commit()
-    conn.close()
-
 
 def db_get_metadata() -> Optional[Dict[str, Any]]:
     """
@@ -33,14 +32,13 @@ def db_get_metadata() -> Optional[Dict[str, Any]]:
     Returns:
         Dictionary containing metadata, or None if not found
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+
+        cursor = conn.cursor()
 
     cursor.execute("SELECT metadata FROM metadata LIMIT 1")
 
     row = cursor.fetchone()
-    conn.close()
-
     if row and row[0]:
         try:
             return json.loads(row[0])
@@ -59,8 +57,9 @@ def db_update_metadata(metadata: Dict[str, Any]) -> bool:
     Returns:
         True if the metadata was updated, False otherwise
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+
+        cursor = conn.cursor()
 
     metadata_json = json.dumps(metadata)
 
@@ -69,7 +68,4 @@ def db_update_metadata(metadata: Dict[str, Any]) -> bool:
     cursor.execute("INSERT INTO metadata (metadata) VALUES (?)", (metadata_json,))
 
     updated = cursor.rowcount > 0
-    conn.commit()
-    conn.close()
-
     return updated

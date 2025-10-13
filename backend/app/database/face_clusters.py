@@ -1,6 +1,7 @@
 import sqlite3
 from typing import Optional, List, Dict, TypedDict, Union
 from app.config.settings import DATABASE_PATH
+from app.database.db_utils import get_db_connection
 
 # Type definitions
 ClusterId = str
@@ -20,8 +21,9 @@ ClusterMap = Dict[ClusterId, ClusterData]
 
 def db_create_clusters_table() -> None:
     """Create the face_clusters table if it doesn't exist."""
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+
+        cursor = conn.cursor()
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS face_clusters (
@@ -31,8 +33,6 @@ def db_create_clusters_table() -> None:
         )
     """
     )
-    conn.commit()
-    conn.close()
 
 
 def db_insert_clusters_batch(clusters: List[ClusterData]) -> List[ClusterId]:
@@ -49,8 +49,9 @@ def db_insert_clusters_batch(clusters: List[ClusterData]) -> List[ClusterId]:
     if not clusters:
         return []
 
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+
+        cursor = conn.cursor()
 
     cluster_ids = []
     insert_data = []
@@ -70,10 +71,6 @@ def db_insert_clusters_batch(clusters: List[ClusterData]) -> List[ClusterId]:
     """,
         insert_data,
     )
-
-    conn.commit()
-    conn.close()
-
     return cluster_ids
 
 
@@ -87,8 +84,9 @@ def db_get_cluster_by_id(cluster_id: ClusterId) -> Optional[ClusterData]:
     Returns:
         ClusterData if found, None otherwise
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+
+        cursor = conn.cursor()
 
     cursor.execute(
         "SELECT cluster_id, cluster_name, face_image_base64 FROM face_clusters WHERE cluster_id = ?",
@@ -96,8 +94,6 @@ def db_get_cluster_by_id(cluster_id: ClusterId) -> Optional[ClusterData]:
     )
 
     row = cursor.fetchone()
-    conn.close()
-
     if row:
         return ClusterData(
             cluster_id=row[0], cluster_name=row[1], face_image_base64=row[2]
@@ -112,16 +108,15 @@ def db_get_all_clusters() -> List[ClusterData]:
     Returns:
         List of ClusterData objects
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+
+        cursor = conn.cursor()
 
     cursor.execute(
         "SELECT cluster_id, cluster_name, face_image_base64 FROM face_clusters ORDER BY cluster_id"
     )
 
     rows = cursor.fetchall()
-    conn.close()
-
     clusters = []
     for row in rows:
         clusters.append(
@@ -147,8 +142,9 @@ def db_update_cluster(
     Returns:
         True if the cluster was updated, False if not found
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+
+        cursor = conn.cursor()
 
     # Build the update query dynamically based on provided parameters
     update_fields = []
@@ -159,7 +155,6 @@ def db_update_cluster(
         update_values.append(cluster_name)
 
     if not update_fields:
-        conn.close()
         return False
 
     update_values.append(cluster_id)
@@ -170,9 +165,6 @@ def db_update_cluster(
     )
 
     updated = cursor.rowcount > 0
-    conn.commit()
-    conn.close()
-
     return updated
 
 
@@ -183,29 +175,28 @@ def db_delete_all_clusters() -> int:
     Returns:
         Number of clusters deleted
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+
+        cursor = conn.cursor()
 
     cursor.execute("DELETE FROM face_clusters")
 
     deleted_count = cursor.rowcount
-    conn.commit()
-    conn.close()
-
     return deleted_count
 
 
-def db_get_all_clusters_with_face_counts() -> List[
-    Dict[str, Union[str, Optional[str], int]]
-]:
+def db_get_all_clusters_with_face_counts() -> (
+    List[Dict[str, Union[str, Optional[str], int]]]
+):
     """
     Retrieve all clusters with their face counts and stored face images.
 
     Returns:
         List of dictionaries containing cluster_id, cluster_name, face_count, and face_image_base64
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+
+        cursor = conn.cursor()
 
     cursor.execute(
         """
@@ -222,8 +213,6 @@ def db_get_all_clusters_with_face_counts() -> List[
     )
 
     rows = cursor.fetchall()
-    conn.close()
-
     clusters = []
     for row in rows:
         cluster_id, cluster_name, face_count, face_image_base64 = row
@@ -251,8 +240,9 @@ def db_get_images_by_cluster_id(
     Returns:
         List of dictionaries containing image data with face information
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+
+        cursor = conn.cursor()
 
     cursor.execute(
         """
@@ -273,8 +263,6 @@ def db_get_images_by_cluster_id(
     )
 
     rows = cursor.fetchall()
-    conn.close()
-
     images = []
     for row in rows:
         (

@@ -1,6 +1,5 @@
-import sqlite3
 from typing import List, Tuple, NamedTuple
-from app.config.settings import DATABASE_PATH
+from app.database.db_utils import get_db_connection
 
 # Type definitions
 FolderId = str
@@ -23,22 +22,19 @@ def db_get_all_folders_with_ids() -> List[FolderIdPath]:
     Returns:
         List of tuples containing (folder_id, folder_path)
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-
     try:
-        cursor.execute(
-            """
-            SELECT folder_id, folder_path FROM folders
-            ORDER BY folder_path
-            """
-        )
-        return cursor.fetchall()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT folder_id, folder_path FROM folders
+                ORDER BY folder_path
+                """
+            )
+            return cursor.fetchall()
     except Exception as e:
         print(f"Error getting folders from database: {e}")
         return []
-    finally:
-        conn.close()
 
 
 def db_check_database_connection() -> bool:
@@ -49,20 +45,17 @@ def db_check_database_connection() -> bool:
         True if connection is successful and table exists, False otherwise
     """
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-
-        # Check if folders table exists
-        cursor.execute(
-            """
-            SELECT name FROM sqlite_master 
-            WHERE type='table' AND name='folders'
-            """
-        )
-        result = cursor.fetchone()
-        conn.close()
-
-        return result is not None
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            # Check if folders table exists
+            cursor.execute(
+                """
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name='folders'
+                """
+            )
+            result = cursor.fetchone()
+            return result is not None
     except Exception as e:
         print(f"Database connection error: {e}")
         return False
@@ -76,42 +69,41 @@ def db_get_tagging_progress() -> List[FolderTaggingInfo]:
     Returns:
         List of FolderTaggingInfo containing folder_id, folder_path, and tagging_percentage
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-
     try:
-        cursor.execute(
-            """
-            SELECT 
-                f.folder_id,
-                f.folder_path,
-                COUNT(i.id) as total_images,
-                COUNT(CASE WHEN i.isTagged = 1 THEN 1 END) as tagged_images
-            FROM folders f
-            LEFT JOIN images i ON f.folder_id = i.folder_id
-            GROUP BY f.folder_id, f.folder_path
-            """
-        )
-
-        results = cursor.fetchall()
-
-        folder_info_list = []
-        for folder_id, folder_path, total_images, tagged_images in results:
-            # Calculate percentage, handle division by zero
-            if total_images > 0:
-                tagging_percentage = (tagged_images / total_images) * 100
-            else:
-                tagging_percentage = 0.0
-
-            folder_info_list.append(
-                FolderTaggingInfo(
-                    folder_id=folder_id,
-                    folder_path=folder_path,
-                    tagging_percentage=round(tagging_percentage, 2),
-                )
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT 
+                    f.folder_id,
+                    f.folder_path,
+                    COUNT(i.id) as total_images,
+                    COUNT(CASE WHEN i.isTagged = 1 THEN 1 END) as tagged_images
+                FROM folders f
+                LEFT JOIN images i ON f.folder_id = i.folder_id
+                GROUP BY f.folder_id, f.folder_path
+                """
             )
 
-        return folder_info_list
+            results = cursor.fetchall()
 
-    finally:
-        conn.close()
+            folder_info_list = []
+            for folder_id, folder_path, total_images, tagged_images in results:
+                # Calculate percentage, handle division by zero
+                if total_images > 0:
+                    tagging_percentage = (tagged_images / total_images) * 100
+                else:
+                    tagging_percentage = 0.0
+
+                folder_info_list.append(
+                    FolderTaggingInfo(
+                        folder_id=folder_id,
+                        folder_path=folder_path,
+                        tagging_percentage=round(tagging_percentage, 2),
+                    )
+                )
+
+            return folder_info_list
+    except Exception as e:
+        print(f"Error getting tagging progress: {e}")
+        return []

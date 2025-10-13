@@ -1,5 +1,6 @@
 import sqlite3
 from app.config.settings import DATABASE_PATH
+from app.database.db_utils import get_db_connection
 from app.utils.YOLO import class_names
 
 
@@ -8,8 +9,9 @@ def db_create_YOLO_classes_table():
     import os
 
     print(os.getcwd())
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+
+        cursor = conn.cursor()
 
     cursor.execute(
         """
@@ -24,6 +26,3 @@ def db_create_YOLO_classes_table():
             "INSERT OR REPLACE INTO mappings (class_id, name) VALUES (?, ?)",
             (str(class_id), name),  # Convert class_id to string since it's now TEXT
         )
-
-    conn.commit()
-    conn.close()

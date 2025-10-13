@@ -319,28 +319,22 @@ def _update_cluster_face_image(cluster_id: str, face_image_base64: str) -> bool:
     Returns:
         True if update was successful, False otherwise
     """
-    import sqlite3
-    from app.config.settings import DATABASE_PATH
-
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    from app.database.db_utils import get_db_connection
 
     try:
-        cursor.execute(
-            "UPDATE face_clusters SET face_image_base64 = ? WHERE cluster_id = ?",
-            (face_image_base64, cluster_id),
-        )
-
-        updated = cursor.rowcount > 0
-        conn.commit()
-        return updated
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE face_clusters SET face_image_base64 = ? WHERE cluster_id = ?",
+                (face_image_base64, cluster_id),
+            )
+            conn.commit()
+            updated = cursor.rowcount > 0
+            return updated
 
     except Exception as e:
         print(f"Error updating face image for cluster {cluster_id}: {e}")
-        conn.rollback()
         return False
-    finally:
-        conn.close()
 
 
 def _get_cluster_face_data(cluster_uuid: str) -> Optional[tuple]:
@@ -353,44 +347,40 @@ def _get_cluster_face_data(cluster_uuid: str) -> Optional[tuple]:
     Returns:
         Tuple of (image_path, bbox_dict) or None if not found
     """
-    import sqlite3
-    from app.config.settings import DATABASE_PATH
-
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    from app.database.db_utils import get_db_connection
 
     try:
-        cursor.execute(
-            """
-            SELECT i.path, f.bbox
-            FROM faces f
-            JOIN images i ON f.image_id = i.id
-            WHERE f.cluster_id = ?
-            LIMIT 1
-            """,
-            (cluster_uuid,),
-        )
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT i.path, f.bbox
+                FROM faces f
+                JOIN images i ON f.image_id = i.id
+                WHERE f.cluster_id = ?
+                LIMIT 1
+                """,
+                (cluster_uuid,),
+            )
 
-        face_data = cursor.fetchone()
-        if not face_data:
-            return None
+            face_data = cursor.fetchone()
+            if not face_data:
+                return None
 
-        image_path, bbox_json = face_data
+            image_path, bbox_json = face_data
 
-        if not bbox_json or not image_path:
-            return None
+            if not bbox_json or not image_path:
+                return None
 
-        try:
-            bbox = json.loads(bbox_json)
-            return (image_path, bbox)
-        except json.JSONDecodeError:
-            return None
+            try:
+                bbox = json.loads(bbox_json)
+                return (image_path, bbox)
+            except json.JSONDecodeError:
+                return None
 
     except Exception as e:
         print(f"Error getting face data for cluster {cluster_uuid}: {e}")
         return None
-    finally:
-        conn.close()
 
 
 def _calculate_square_crop_bounds(

@@ -1,11 +1,8 @@
 # Standard library imports
-import sqlite3
 from typing import List, Tuple, TypedDict
 
 # App-specific imports
-from app.config.settings import (
-    DATABASE_PATH,
-)
+from app.database.db_utils import get_db_connection
 
 # Type definitions
 ImageId = str
@@ -29,39 +26,36 @@ ImageClassPair = Tuple[ImageId, ClassId]
 
 
 def db_create_images_table() -> None:
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
 
-    # Create new images table with merged fields
-    cursor.execute(
+        # Create new images table with merged fields
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS images (
+                id TEXT PRIMARY KEY,
+                path VARCHAR UNIQUE,
+                folder_id INTEGER,
+                thumbnailPath TEXT UNIQUE,
+                metadata TEXT,
+                isTagged BOOLEAN DEFAULT 0,
+                FOREIGN KEY (folder_id) REFERENCES folders(folder_id) ON DELETE CASCADE
+            )
         """
-        CREATE TABLE IF NOT EXISTS images (
-            id TEXT PRIMARY KEY,
-            path VARCHAR UNIQUE,
-            folder_id INTEGER,
-            thumbnailPath TEXT UNIQUE,
-            metadata TEXT,
-            isTagged BOOLEAN DEFAULT 0,
-            FOREIGN KEY (folder_id) REFERENCES folders(folder_id) ON DELETE CASCADE
         )
-    """
-    )
 
-    # Create new image_classes junction table
-    cursor.execute(
+        # Create new image_classes junction table
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS image_classes (
+                image_id TEXT,
+                class_id INTEGER,
+                PRIMARY KEY (image_id, class_id),
+                FOREIGN KEY (image_id) REFERENCES images(id) ON DELETE CASCADE,
+                FOREIGN KEY (class_id) REFERENCES mappings(class_id) ON DELETE CASCADE
+            )
         """
-        CREATE TABLE IF NOT EXISTS image_classes (
-            image_id TEXT,
-            class_id INTEGER,
-            PRIMARY KEY (image_id, class_id),
-            FOREIGN KEY (image_id) REFERENCES images(id) ON DELETE CASCADE,
-            FOREIGN KEY (class_id) REFERENCES mappings(class_id) ON DELETE CASCADE
         )
-    """
-    )
-
-    conn.commit()
-    conn.close()
 
 
 def db_bulk_insert_images(image_records: List[ImageRecord]) -> bool:
@@ -69,25 +63,20 @@ def db_bulk_insert_images(image_records: List[ImageRecord]) -> bool:
     if not image_records:
         return True
 
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-
     try:
-        cursor.executemany(
-            """
-            INSERT OR IGNORE INTO images (id, path, folder_id, thumbnailPath, metadata, isTagged)
-            VALUES (:id, :path, :folder_id, :thumbnailPath, :metadata, :isTagged)
-        """,
-            image_records,
-        )
-        conn.commit()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.executemany(
+                """
+                INSERT OR IGNORE INTO images (id, path, folder_id, thumbnailPath, metadata, isTagged)
+                VALUES (:id, :path, :folder_id, :thumbnailPath, :metadata, :isTagged)
+            """,
+                image_records,
+            )
         return True
     except Exception as e:
         print(f"Error inserting image records: {e}")
-        conn.rollback()
         return False
-    finally:
-        conn.close()
 
 
 def db_get_all_images() -> List[dict]:
@@ -97,72 +86,69 @@ def db_get_all_images() -> List[dict]:
     Returns:
         List of dictionaries containing all image data including tags
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-
     try:
-        cursor.execute(
-            """
-            SELECT 
-                i.id, 
-                i.path, 
-                i.folder_id, 
-                i.thumbnailPath, 
-                i.metadata, 
-                i.isTagged,
-                m.name as tag_name
-            FROM images i
-            LEFT JOIN image_classes ic ON i.id = ic.image_id
-            LEFT JOIN mappings m ON ic.class_id = m.class_id
-            ORDER BY i.path, m.name
-            """
-        )
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT 
+                    i.id, 
+                    i.path, 
+                    i.folder_id, 
+                    i.thumbnailPath, 
+                    i.metadata, 
+                    i.isTagged,
+                    m.name as tag_name
+                FROM images i
+                LEFT JOIN image_classes ic ON i.id = ic.image_id
+                LEFT JOIN mappings m ON ic.class_id = m.class_id
+                ORDER BY i.path, m.name
+                """
+            )
 
-        results = cursor.fetchall()
+            results = cursor.fetchall()
 
-        # Group results by image ID
-        images_dict = {}
-        for (
-            image_id,
-            path,
-            folder_id,
-            thumbnail_path,
-            metadata,
-            is_tagged,
-            tag_name,
-        ) in results:
-            if image_id not in images_dict:
-                images_dict[image_id] = {
-                    "id": image_id,
-                    "path": path,
-                    "folder_id": folder_id,
-                    "thumbnailPath": thumbnail_path,
-                    "metadata": metadata,
-                    "isTagged": bool(is_tagged),
-                    "tags": [],
-                }
+            # Group results by image ID
+            images_dict = {}
+            for (
+                image_id,
+                path,
+                folder_id,
+                thumbnail_path,
+                metadata,
+                is_tagged,
+                tag_name,
+            ) in results:
+                if image_id not in images_dict:
+                    images_dict[image_id] = {
+                        "id": image_id,
+                        "path": path,
+                        "folder_id": folder_id,
+                        "thumbnailPath": thumbnail_path,
+                        "metadata": metadata,
+                        "isTagged": bool(is_tagged),
+                        "tags": [],
+                    }
 
-            # Add tag if it exists
-            if tag_name:
-                images_dict[image_id]["tags"].append(tag_name)
+                # Add tag if it exists
+                if tag_name:
+                    images_dict[image_id]["tags"].append(tag_name)
 
-        # Convert to list and set tags to None if empty
-        images = []
-        for image_data in images_dict.values():
-            if not image_data["tags"]:
-                image_data["tags"] = None
-            images.append(image_data)
+            # Convert to list and set tags to None if empty
+            images = []
+            for image_data in images_dict.values():
+                if not image_data["tags"]:
+                    image_data["tags"] = None
+                images.append(image_data)
 
-        # Sort by path
-        images.sort(key=lambda x: x["path"])
+            # Sort by path
+            images.sort(key=lambda x: x["path"])
 
-        return images
+            return images
 
     except Exception as e:
         print(f"Error getting all images: {e}")
         return []
-    finally:
-        conn.close()
 
 
 def db_get_untagged_images() -> List[ImageRecord]:
@@ -175,10 +161,8 @@ def db_get_untagged_images() -> List[ImageRecord]:
     Returns:
         List of dictionaries containing image data: id, path, folder_id, thumbnailPath, metadata
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-
-    try:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
         cursor.execute(
             """
             SELECT i.id, i.path, i.folder_id, i.thumbnailPath, i.metadata
@@ -205,9 +189,6 @@ def db_get_untagged_images() -> List[ImageRecord]:
 
         return untagged_images
 
-    finally:
-        conn.close()
-
 
 def db_update_image_tagged_status(image_id: ImageId, is_tagged: bool = True) -> bool:
     """
@@ -220,22 +201,17 @@ def db_update_image_tagged_status(image_id: ImageId, is_tagged: bool = True) -> 
     Returns:
         True if update was successful, False otherwise
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-
     try:
-        cursor.execute(
-            "UPDATE images SET isTagged = ? WHERE id = ?",
-            (is_tagged, image_id),
-        )
-        conn.commit()
-        return cursor.rowcount > 0
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE images SET isTagged = ? WHERE id = ?",
+                (is_tagged, image_id),
+            )
+            return cursor.rowcount > 0
     except Exception as e:
         print(f"Error updating image tagged status: {e}")
-        conn.rollback()
         return False
-    finally:
-        conn.close()
 
 
 def db_insert_image_classes_batch(image_class_pairs: List[ImageClassPair]) -> bool:
@@ -251,25 +227,20 @@ def db_insert_image_classes_batch(image_class_pairs: List[ImageClassPair]) -> bo
     if not image_class_pairs:
         return True
 
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-
     try:
-        cursor.executemany(
-            """
-            INSERT OR IGNORE INTO image_classes (image_id, class_id)
-            VALUES (?, ?)
-            """,
-            image_class_pairs,
-        )
-        conn.commit()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.executemany(
+                """
+                INSERT OR IGNORE INTO image_classes (image_id, class_id)
+                VALUES (?, ?)
+                """,
+                image_class_pairs,
+            )
         return True
     except Exception as e:
         print(f"Error inserting image classes: {e}")
-        conn.rollback()
         return False
-    finally:
-        conn.close()
 
 
 def db_get_images_by_folder_ids(
@@ -287,26 +258,23 @@ def db_get_images_by_folder_ids(
     if not folder_ids:
         return []
 
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-
     try:
-        # Create placeholders for the IN clause
-        placeholders = ",".join("?" for _ in folder_ids)
-        cursor.execute(
-            f"""
-            SELECT id, path, thumbnailPath
-            FROM images
-            WHERE folder_id IN ({placeholders})
-            """,
-            folder_ids,
-        )
-        return cursor.fetchall()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            # Create placeholders for the IN clause
+            placeholders = ",".join("?" for _ in folder_ids)
+            cursor.execute(
+                f"""
+                SELECT id, path, thumbnailPath
+                FROM images
+                WHERE folder_id IN ({placeholders})
+                """,
+                folder_ids,
+            )
+            return cursor.fetchall()
     except Exception as e:
         print(f"Error getting images by folder IDs: {e}")
         return []
-    finally:
-        conn.close()
 
 
 def db_delete_images_by_ids(image_ids: List[ImageId]) -> bool:
@@ -323,22 +291,17 @@ def db_delete_images_by_ids(image_ids: List[ImageId]) -> bool:
     if not image_ids:
         return True
 
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-
     try:
-        # Create placeholders for the IN clause
-        placeholders = ",".join("?" for _ in image_ids)
-        cursor.execute(
-            f"DELETE FROM images WHERE id IN ({placeholders})",
-            image_ids,
-        )
-        conn.commit()
-        print(f"Deleted {cursor.rowcount} obsolete image(s) from database")
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            # Create placeholders for the IN clause
+            placeholders = ",".join("?" for _ in image_ids)
+            cursor.execute(
+                f"DELETE FROM images WHERE id IN ({placeholders})",
+                image_ids,
+            )
+            print(f"Deleted {cursor.rowcount} obsolete image(s) from database")
         return True
     except Exception as e:
         print(f"Error deleting images: {e}")
-        conn.rollback()
         return False
-    finally:
-        conn.close()

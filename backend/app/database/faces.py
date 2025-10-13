@@ -3,6 +3,7 @@ import json
 import numpy as np
 from typing import Optional, List, Dict, Union, TypedDict
 from app.config.settings import DATABASE_PATH
+from app.database.db_utils import get_db_connection
 
 # Type definitions
 FaceId = int
@@ -27,8 +28,8 @@ FaceClusterMapping = Dict[FaceId, Optional[ClusterId]]
 
 
 def db_create_faces_table() -> None:
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS faces (
@@ -43,8 +44,6 @@ def db_create_faces_table() -> None:
         )
     """
     )
-    conn.commit()
-    conn.close()
 
 
 def db_insert_face_embeddings(
@@ -65,8 +64,8 @@ def db_insert_face_embeddings(
         bbox: Bounding box coordinates as dict with keys: x, y, width, height (optional)
         cluster_id: ID of the face cluster this face belongs to (optional)
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
 
     embeddings_json = json.dumps([emb.tolist() for emb in embeddings])
 
@@ -82,8 +81,6 @@ def db_insert_face_embeddings(
     )
 
     face_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
     return face_id
 
 
@@ -135,10 +132,8 @@ def db_insert_face_embeddings_by_image_id(
 
 
 def get_all_face_embeddings():
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-
-    try:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
         cursor.execute(
             """
             SELECT
@@ -203,8 +198,6 @@ def get_all_face_embeddings():
         # Sort by path
         images.sort(key=lambda x: x["path"])
         return images
-    finally:
-        conn.close()
 
 
 def db_get_faces_unassigned_clusters() -> List[Dict[str, Union[FaceId, FaceEmbedding]]]:
@@ -214,14 +207,12 @@ def db_get_faces_unassigned_clusters() -> List[Dict[str, Union[FaceId, FaceEmbed
     Returns:
         List of dictionaries containing face_id and embeddings (as numpy array)
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
 
     cursor.execute("SELECT face_id, embeddings FROM faces WHERE cluster_id IS NULL")
 
     rows = cursor.fetchall()
-    conn.close()
-
     faces = []
     for row in rows:
         face_id, embeddings_json = row
@@ -232,17 +223,17 @@ def db_get_faces_unassigned_clusters() -> List[Dict[str, Union[FaceId, FaceEmbed
     return faces
 
 
-def db_get_all_faces_with_cluster_names() -> List[
-    Dict[str, Union[FaceId, FaceEmbedding, Optional[str]]]
-]:
+def db_get_all_faces_with_cluster_names() -> (
+    List[Dict[str, Union[FaceId, FaceEmbedding, Optional[str]]]]
+):
     """
     Get all faces with their corresponding cluster names.
 
     Returns:
         List of dictionaries containing face_id, embeddings (as numpy array), and cluster_name
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
 
     cursor.execute(
         """
@@ -254,8 +245,6 @@ def db_get_all_faces_with_cluster_names() -> List[
     )
 
     rows = cursor.fetchall()
-    conn.close()
-
     faces = []
     for row in rows:
         face_id, embeddings_json, cluster_name = row
@@ -269,7 +258,7 @@ def db_get_all_faces_with_cluster_names() -> List[
 
 
 def db_update_face_cluster_ids_batch(
-    face_cluster_mapping: List[Dict[str, Union[FaceId, ClusterId]]]
+    face_cluster_mapping: List[Dict[str, Union[FaceId, ClusterId]]],
 ) -> None:
     """
     Update cluster IDs for multiple faces in batch.
@@ -288,8 +277,8 @@ def db_update_face_cluster_ids_batch(
     if not face_cluster_mapping:
         return
 
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
 
     # Prepare update data as tuples (cluster_id, face_id)
     update_data = []
@@ -307,9 +296,6 @@ def db_update_face_cluster_ids_batch(
         update_data,
     )
 
-    conn.commit()
-    conn.close()
-
 
 def db_get_cluster_mean_embeddings() -> List[Dict[str, Union[str, FaceEmbedding]]]:
     """
@@ -319,8 +305,8 @@ def db_get_cluster_mean_embeddings() -> List[Dict[str, Union[str, FaceEmbedding]
         List of dictionaries containing cluster_id and mean_embedding (as numpy array)
         Only returns clusters that have at least one face assigned
     """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
 
     cursor.execute(
         """
@@ -332,8 +318,6 @@ def db_get_cluster_mean_embeddings() -> List[Dict[str, Union[str, FaceEmbedding]
     )
 
     rows = cursor.fetchall()
-    conn.close()
-
     if not rows:
         return []
 
