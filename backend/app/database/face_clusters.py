@@ -1,6 +1,4 @@
-import sqlite3
 from typing import Optional, List, Dict, TypedDict, Union
-from app.config.settings import DATABASE_PATH
 from app.database.db_utils import get_db_connection
 
 # Type definitions

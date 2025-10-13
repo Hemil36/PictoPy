@@ -1,8 +1,6 @@
-import sqlite3
 import json
 import numpy as np
 from typing import Optional, List, Dict, Union, TypedDict
-from app.config.settings import DATABASE_PATH
 from app.database.db_utils import get_db_connection
 
 # Type definitions

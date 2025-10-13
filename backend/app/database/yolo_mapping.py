@@ -1,5 +1,3 @@
-import sqlite3
-from app.config.settings import DATABASE_PATH
 from app.database.db_utils import get_db_connection
 from app.utils.YOLO import class_names
 

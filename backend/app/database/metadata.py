@@ -1,8 +1,6 @@
 # This DB table contains metadata about the application and user preferences.
-import sqlite3
 import json
 from typing import Optional, Dict, Any
-from app.config.settings import DATABASE_PATH
 from app.database.db_utils import get_db_connection
 
 
