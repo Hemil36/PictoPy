@@ -101,7 +101,7 @@ export const PersonImages = () => {
         )}
       </div>
       <h1 className="mb-6 text-3xl font-bold">{clusterName}</h1>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap- 4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {images.map((image, index) => (
           <ImageCard
             key={image.id}
