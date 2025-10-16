@@ -69,7 +69,7 @@ export const ThemeSelectionStep: React.FC<ThemeSelectionStepProps> = ({
             />
           </div>
 
-          <CardTitle className="text-xl font-semibold">
+          <CardTitle className="text-xll font-semibold">
             Choose Your Theme
           </CardTitle>
           <CardDescription className="mt-2 text-base">
