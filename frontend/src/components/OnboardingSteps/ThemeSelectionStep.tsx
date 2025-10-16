@@ -106,7 +106,7 @@ export const ThemeSelectionStep: React.FC<ThemeSelectionStepProps> = ({
 
             <Label
               htmlFor="system"
-              className="hover:bg-muted/50 flex cursor-pointer items-center space-x-4 rounded-lg border p-4 transition-colors"
+              className="hover:bg-muted/50 h-8 flex cursor-pointer items-center space-x-4 rounded-lg border p-4 transition-colors"
             >
               <RadioGroupItem value="system" id="system" />
               <div className="flex items-center space-x-3">
