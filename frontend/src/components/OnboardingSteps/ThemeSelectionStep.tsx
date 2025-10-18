@@ -98,7 +98,7 @@ export const ThemeSelectionStep: React.FC<ThemeSelectionStepProps> = ({
               className="hover:bg-muted/50 flex cursor-pointer items-center space-x-4 rounded-lg border p-4 transition-colors"
             >
               <RadioGroupItem value="dark" id="dark" />
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center spac e-x-3">
                 <Moon className="text-primary h-5 w-5" />
                 <span className="text-base font-medium">Dark Mode</span>
               </div>
