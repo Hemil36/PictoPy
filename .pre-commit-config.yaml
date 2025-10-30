@@ -1,12 +1,30 @@
 repos:
+  # --- Python: Ruff (lint + fix) ---
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     rev: "v0.0.241"
     hooks:
       - id: ruff
         args: [--fix]
+        files: ^backend/
 
+  # --- Python: Black (formatter) ---
   - repo: https://github.com/psf/black
     rev: "22.3.0"
     hooks:
       - id: black
         language_version: python3
+        files: ^backend/
+
+  # --- Frontend: Prettier (only changed files) ---
+  - repo: local
+    hooks:
+      - id: prettier-frontend
+        name: Run Prettier (frontend)
+        entry: bash -c "cd frontend && npx prettier --check"
+        language: system
+        types_or: [ts, tsx, json]
+        files: ^frontend/
+        pass_filenames: true     # ✅ only run on changed/staged files
+        always_run: false        # ✅ skip if no frontend files changed
+
+
