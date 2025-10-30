@@ -20,12 +20,12 @@ repos:
     hooks:
       - id: prettier-frontend
         name: Run Prettier (frontend)
-        entry: bash -c "cd frontend && npx prettier --check"
+        entry: bash -c 'FILES=$(echo "$@" | sed "s|frontend/||g") && cd frontend && npx prettier --write $FILES' --
         language: system
-        types_or: [ts, tsx, json]
-        files: ^frontend/
+        files: ^frontend/.*\.(ts|tsx|json)$
         pass_filenames: true
         always_run: false
+
 
 
 

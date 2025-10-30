@@ -277,6 +277,7 @@ def face_tagging(
         format_match = (
             base64_data.split(";")[0].split("/")[-1] if ";" in base64_data else "jpeg"
         )
+
         extension = (
             format_match
             if format_match in ["jpeg", "jpg", "png", "gif", "webp"]
