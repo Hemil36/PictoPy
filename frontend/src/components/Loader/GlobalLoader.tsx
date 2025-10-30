@@ -14,8 +14,6 @@ export const GlobalLoader: React.FC<GlobalLoaderProps> = ({
      
      
      
-     
-
 
 
 
