@@ -22,7 +22,8 @@ export const GlobalLoader: React.FC<GlobalLoaderProps> = ({
 
 
 
-     
+
+
       <Card className="animate-in fade-in-0 zoom-in-95 flex flex-row items-center gap-3 p-6 duration-300">
         <Loader className="text-primary h-6 w-6 animate-spin" />
         <span className="font-medium">{message}</span>
